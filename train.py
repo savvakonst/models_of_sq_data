@@ -147,27 +147,29 @@ if __name__ == '__main__':
         raise ValueError(f"Unknown loader {args.loader}.")
     
     #returns top seasons in ascending order
-    def getSeasons(data, num_of_top_s = 3):
-        plt.plot(np.abs(np.fft.fft(np.diff(data))))
+    def getSeasons(data, num_of_top_s = 3, threshold = 5):
+        fft = np.abs(np.fft.fft(np.diff(data,append=[0])))
         
-        fft = np.abs(np.fft.fft(np.diff(data,append=[0])))[:len(data) // 2]
-        peak_indices, _ = find_peaks(fft)
-        if len(peak_indices)==0:
+        fft = fft[:len(data) // 2]
+        peak_indices, _ = find_peaks(fft, distance= 3)
+        peak_indices = peak_indices[np.logical_and(fft[peak_indices] > fft.mean()*threshold,fft[peak_indices] > np.median(fft)*threshold) ]
+        if  len(peak_indices)==0:
             return None
         num_of_top_s = len(peak_indices) if len(peak_indices)<num_of_top_s else num_of_top_s
         top_peaks = peak_indices[np.argsort(fft[peak_indices])][-num_of_top_s:]
         top_seasons = np.rint(len(data)/top_peaks).astype(int)
+
         print("top_seasons: ",top_seasons, "\n tot peaks num:", len(peak_indices))
+        plt.plot(fft)
         plt.plot(peak_indices, fft[peak_indices], 'o')
         plt.show()
-        
         return top_seasons
     
     #iterate over the features 
     if args.use_arima and task_type == 'forecasting' and UNI == True:
         data = train_data.transpose(2, 0, 1)[-1][0]
         seasons = getSeasons(data)
-        season = 1 if seasons == None else seasons[-1]
+        season = 1 if seasons is None else seasons[-1]
         
         plt.plot(train_data[0])
         plt.show()
@@ -188,7 +190,7 @@ if __name__ == '__main__':
         for f_idx, feature in enumerate(train_data.transpose(2, 0, 1)):
             for inst_idx, inst in enumerate(feature):
                 seasons = getSeasons(data)
-                season = 1 if seasons == None else seasons[-1]
+                season = 1 if seasons is None else seasons[-1]
                 model = pm.auto_arima(train_data.transpose(2, 0, 1)[-1][0], 
                                     seasonal=True,
                                     #max_p=None,
