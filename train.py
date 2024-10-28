@@ -1,4 +1,5 @@
 import json
+from matplotlib import pyplot as plt
 import torch
 import numpy as np
 import argparse
@@ -11,7 +12,7 @@ from soft_ts2vec import TS2Vec
 import tasks
 import datautils
 from utils import init_dl_program, pkl_save, data_dropout
-
+from scipy.signal import find_peaks
 import pmdarima as pm
 from pmdarima.model_selection import train_test_split
 
@@ -145,28 +146,74 @@ if __name__ == '__main__':
     else:
         raise ValueError(f"Unknown loader {args.loader}.")
     
+    #returns top seasons in ascending order
+    def getSeasons(data, num_of_top_s = 3, threshold = 5, print_fft = False):
+        fft = np.abs(np.fft.fft(np.diff(data,append=[0])))
+        
+        fft = fft[:len(data) // 2]
+        peak_indices, _ = find_peaks(fft, distance= 3)
+        _mean_median_th = max([fft.mean()*threshold, np.median(fft)*threshold])
+        peak_indices = peak_indices[fft[peak_indices] > _mean_median_th ]
+        if  len(peak_indices)==0:
+            return None
 
+        num_of_top_s = len(peak_indices) if len(peak_indices)<num_of_top_s else num_of_top_s
+        top_peaks = peak_indices[np.argsort(fft[peak_indices])][-num_of_top_s:]
+        top_seasons = np.rint(len(data)/top_peaks).astype(int)
+        top_seasons = top_seasons[(top_seasons<30)]
+        if  len(top_seasons)==0:
+            return None
+        print("top_seasons: ",top_seasons, "\n tot peaks num:", len(peak_indices))
+        if print_fft:
+            plt.axhline(y = _mean_median_th, color = 'r', linestyle = 'dashed')    
+            plt.plot(fft)
+            plt.plot(peak_indices, fft[peak_indices], 'o')
+            plt.show()
+        return top_seasons
+    
     #iterate over the features 
-    if args.use_arima:
+    if args.use_arima and task_type == 'forecasting' and UNI == True:
+        temp_data = train_data.transpose(2, 0, 1)[-1][0]
+        seasons = getSeasons(temp_data, print_fft = True)
+        season = 1 if seasons is None else seasons[-1]
+
+        #plt.plot(train_data[0])
+        #plt.show()
+        model = pm.auto_arima(temp_data[:len(temp_data)//8], 
+                              seasonal=True,
+                              max_order=None,
+                              m=season
+                              )
+        print(model.summary(),"\n",model.order,model.seasonal_order, model.get_params().get('seasonal_order'))
+        tau_temp = sum(model.order[0:2])+sum(model.seasonal_order[0:2])*season
+
+    elif args.use_arima:
         orders_sum = []
         for f_idx, feature in enumerate(train_data.transpose(2, 0, 1)):
             for inst_idx, inst in enumerate(feature):
-                model = pm.auto_arima(inst, seasonal=True)
+                seasons = getSeasons(inst, print_fft = True)
+                season = 1 if seasons is None else seasons[-1]
+                model = pm.auto_arima(train_data.transpose(2, 0, 1)[-1][0], 
+                                    seasonal=True,
+                                    max_order=None,
+                                    m=season
+                                    )
                 print(f"order of the feature #{f_idx}, and instance {inst_idx} - ", model.order)
-                orders_sum.append(sum(model.order[0:2]))
+                orders_sum.append(sum(model.order[0:2])+sum(model.seasonal_order[0:2])*season)
 
         tau_temp = 2./max(orders_sum)
         print ("tau temporal:", tau_temp)
     else:
         tau_temp = args.tau_temp
+
+        
     if args.irregular > 0:
         if task_type == 'classification':
             train_data = data_dropout(train_data, args.irregular)
             test_data = data_dropout(test_data, args.irregular)
         else:
             raise ValueError(f"Task type {task_type} is not supported when irregular>0.")
-    #args.tau_temp = 2.0
-    #print("Arguments:", str(args))
+
 
     
     config = dict(
