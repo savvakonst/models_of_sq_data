@@ -167,13 +167,13 @@ if __name__ == '__main__':
     
     #iterate over the features 
     if args.use_arima and task_type == 'forecasting' and UNI == True:
-        data = train_data.transpose(2, 0, 1)[-1][0]
-        seasons = getSeasons(data)
+        temp_data = train_data.transpose(2, 0, 1)[-1][0]
+        seasons = getSeasons(temp_data)
         season = 1 if seasons is None else seasons[-1]
         
         plt.plot(train_data[0])
         plt.show()
-        model = pm.auto_arima(data[:len(data)//8], 
+        model = pm.auto_arima(temp_data[:len(temp_data)//16], 
                               seasonal=True,
                               #max_p=None,
                               #max_q=None,
@@ -182,14 +182,14 @@ if __name__ == '__main__':
                               max_order=None,
                               m=season
                               )
-        print(model.summary(),"\n",model.order)
+        print(model.summary(),"\n",model.order,model.get_params().get('seasonal_order'))
         tau_temp = args.tau_temp
 
     elif args.use_arima:
         orders_sum = []
         for f_idx, feature in enumerate(train_data.transpose(2, 0, 1)):
             for inst_idx, inst in enumerate(feature):
-                seasons = getSeasons(data)
+                seasons = getSeasons(inst)
                 season = 1 if seasons is None else seasons[-1]
                 model = pm.auto_arima(train_data.transpose(2, 0, 1)[-1][0], 
                                     seasonal=True,
