@@ -184,7 +184,7 @@ if __name__ == '__main__':
                               max_order=None,
                               m=season
                               )
-        print(model.summary(),"\n",model.order,model.seasonal_order, model.get_params().get('seasonal_order'))
+        print(model.summary(),"\n",model.order,model.seasonal_order)
         tau_temp = sum(model.order[0:2])+sum(model.seasonal_order[0:2])*season
 
     elif args.use_arima:
@@ -198,7 +198,7 @@ if __name__ == '__main__':
                                     max_order=None,
                                     m=season
                                     )
-                print(f"order of the feature #{f_idx}, and instance {inst_idx} - ", model.order)
+                print(f"order of the feature #{f_idx}, and instance {inst_idx} - ", model.order,model.seasonal_order)
                 orders_sum.append(sum(model.order[0:2])+sum(model.seasonal_order[0:2])*season)
 
         tau_temp = 2./max(orders_sum)
