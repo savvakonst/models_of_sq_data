@@ -147,7 +147,7 @@ if __name__ == '__main__':
         raise ValueError(f"Unknown loader {args.loader}.")
     
     #returns top seasons in ascending order
-    def getSeasons(data, num_of_top_s = 3, threshold = 5):
+    def getSeasons(data, num_of_top_s = 3, threshold = 5, print_fft = False):
         fft = np.abs(np.fft.fft(np.diff(data,append=[0])))
         
         fft = fft[:len(data) // 2]
@@ -160,20 +160,21 @@ if __name__ == '__main__':
         top_seasons = np.rint(len(data)/top_peaks).astype(int)
 
         print("top_seasons: ",top_seasons, "\n tot peaks num:", len(peak_indices))
-        plt.plot(fft)
-        plt.plot(peak_indices, fft[peak_indices], 'o')
-        plt.show()
+        if print_fft:
+            plt.plot(fft)
+            plt.plot(peak_indices, fft[peak_indices], 'o')
+            plt.show()
         return top_seasons
     
     #iterate over the features 
     if args.use_arima and task_type == 'forecasting' and UNI == True:
         temp_data = train_data.transpose(2, 0, 1)[-1][0]
-        seasons = getSeasons(temp_data)
+        seasons = getSeasons(temp_data,print_fft = True)
         season = 1 if seasons is None else seasons[-1]
-        
-        plt.plot(train_data[0])
-        plt.show()
-        model = pm.auto_arima(temp_data[:len(temp_data)//16], 
+
+        #plt.plot(train_data[0])
+        #plt.show()
+        model = pm.auto_arima(temp_data[:len(temp_data)//8], 
                               seasonal=True,
                               #max_p=None,
                               #max_q=None,
@@ -182,8 +183,8 @@ if __name__ == '__main__':
                               max_order=None,
                               m=season
                               )
-        print(model.summary(),"\n",model.order,model.get_params().get('seasonal_order'))
-        tau_temp = args.tau_temp
+        print(model.summary(),"\n",model.order,model.seasonal_order, model.get_params().get('seasonal_order'))
+        tau_temp = sum(model.order[0:2])+sum(model.seasonal_order[0:2])*season
 
     elif args.use_arima:
         orders_sum = []
@@ -201,7 +202,7 @@ if __name__ == '__main__':
                                     m=season
                                     )
                 print(f"order of the feature #{f_idx}, and instance {inst_idx} - ", model.order)
-                orders_sum.append(sum(model.order[0:2]))
+                orders_sum.append(sum(model.order[0:2])+sum(model.seasonal_order[0:2])*season)
 
         tau_temp = 2./max(orders_sum)
         print ("tau temporal:", tau_temp)
