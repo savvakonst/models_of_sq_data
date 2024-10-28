@@ -152,7 +152,8 @@ if __name__ == '__main__':
         
         fft = fft[:len(data) // 2]
         peak_indices, _ = find_peaks(fft, distance= 3)
-        peak_indices = peak_indices[np.logical_and(fft[peak_indices] > fft.mean()*threshold,fft[peak_indices] > np.median(fft)*threshold) ]
+        _mean_median_th = max([fft.mean()*threshold, np.median(fft)*threshold])
+        peak_indices = peak_indices[fft[peak_indices] > _mean_median_th ]
         if  len(peak_indices)==0:
             return None
         num_of_top_s = len(peak_indices) if len(peak_indices)<num_of_top_s else num_of_top_s
@@ -161,6 +162,7 @@ if __name__ == '__main__':
 
         print("top_seasons: ",top_seasons, "\n tot peaks num:", len(peak_indices))
         if print_fft:
+            plt.axhline(y = _mean_median_th, color = 'r', linestyle = 'dashed')    
             plt.plot(fft)
             plt.plot(peak_indices, fft[peak_indices], 'o')
             plt.show()
@@ -169,7 +171,7 @@ if __name__ == '__main__':
     #iterate over the features 
     if args.use_arima and task_type == 'forecasting' and UNI == True:
         temp_data = train_data.transpose(2, 0, 1)[-1][0]
-        seasons = getSeasons(temp_data,print_fft = True)
+        seasons = getSeasons(temp_data, print_fft = True)
         season = 1 if seasons is None else seasons[-1]
 
         #plt.plot(train_data[0])
