@@ -185,13 +185,18 @@ if __name__ == '__main__':
                               m=season
                               )
         print(model.summary(),"\n",model.order,model.seasonal_order)
-        tau_temp = sum(model.order[0:2])+sum(model.seasonal_order[0:2])*season
-
+        orders_sum = sum(model.order[0:2])+sum(model.seasonal_order[0:2])*season
+        tau_temp = 2./max(orders_sum)
+        
     elif args.use_arima:
         orders_sum = []
         for f_idx, feature in enumerate(train_data.transpose(2, 0, 1)):
+            if feature.shape[0]> 8:
+                rand_idxs = np.random.choice(feature.shape[0], 8)
+                feature = feature[rand_idxs]
             for inst_idx, inst in enumerate(feature):
-                seasons = getSeasons(inst, print_fft = True)
+                
+                seasons = getSeasons(inst, print_fft = False)
                 season = 1 if seasons is None else seasons[-1]
                 model = pm.auto_arima(train_data.transpose(2, 0, 1)[-1][0], 
                                     seasonal=True,
